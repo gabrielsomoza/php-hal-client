@@ -13,8 +13,8 @@
     ],
     "require": {
         "php": ">=5.4.0",
-        "guzzle/guzzle": "~3.9",
-        "doctrine/collections": "~1.2"
+        "doctrine/collections": "~1.2",
+        "guzzlehttp/guzzle": "^6.1"
     },
     "require-dev": {
         "jms/serializer": "~0.16",

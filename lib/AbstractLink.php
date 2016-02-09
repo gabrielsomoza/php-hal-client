@@ -11,7 +11,7 @@
 
 namespace Ekino\HalClient;
 
-use Guzzle\Parser\UriTemplate\UriTemplate;
+use GuzzleHttp\UriTemplate;
 
 abstract class AbstractLink
 {

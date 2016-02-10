@@ -30,6 +30,10 @@ class HalResource implements \ArrayAccess
     protected $client;
 
     private $messageFactory;
+    /**
+     * @var array
+     */
+    private $defaultHeaders;
 
     /**
      * @param array $properties
@@ -37,13 +41,15 @@ class HalResource implements \ArrayAccess
      * @param array $embedded
      * @param HttpClient|null $client
      * @param MessageFactory $messageFactory
+     * @param array $defaultHeaders
      */
     public function __construct(
         $properties = array(),
         $links = array(),
         $embedded = array(),
         HttpClient $client = null,
-        MessageFactory $messageFactory = null
+        MessageFactory $messageFactory = null,
+        array $defaultHeaders = []
     ) {
         $this->properties = $properties;
         $this->links      = $links;
@@ -53,6 +59,7 @@ class HalResource implements \ArrayAccess
         $this->messageFactory = $messageFactory;
 
         $this->parseCuries();
+        $this->defaultHeaders = $defaultHeaders;
     }
 
     /**
@@ -67,7 +74,8 @@ class HalResource implements \ArrayAccess
             $this->links,
             $this->embedded,
             $client,
-            $this->messageFactory
+            $this->messageFactory,
+            $this->defaultHeaders
         );
     }
 
@@ -83,7 +91,25 @@ class HalResource implements \ArrayAccess
             $this->links,
             $this->embedded,
             $this->client,
-            $messageFactory
+            $messageFactory,
+            $this->defaultHeaders
+        );
+    }
+
+    /**
+     * withDefaultHeaders
+     * @param array $defaultHeaders
+     * @return static
+     */
+    public function withDefaultHeaders(array $defaultHeaders)
+    {
+        return new static(
+            $this->properties,
+            $this->links,
+            $this->embedded,
+            $this->client,
+            $this->messageFactory,
+            $defaultHeaders
         );
     }
 
@@ -279,10 +305,15 @@ class HalResource implements \ArrayAccess
      * @param HttpClient $client
      *
      * @param MessageFactory $messageFactory
+     * @param array $defaultHeaders
      * @return Resource
      */
-    public static function create(array $data, HttpClient $client = null, MessageFactory $messageFactory = null)
-    {
+    public static function create(
+        array $data,
+        HttpClient $client = null,
+        MessageFactory $messageFactory = null,
+        array $defaultHeaders = []
+    ) {
         $links    = isset($data['_links']) ? $data['_links'] : array();
         $embedded = isset($data['_embedded']) ? $data['_embedded'] : array();
 
@@ -291,7 +322,7 @@ class HalResource implements \ArrayAccess
             $data['_embedded']
         );
 
-        return new self($data, $links, $embedded, $client, $messageFactory);
+        return new self($data, $links, $embedded, $client, $messageFactory, $defaultHeaders);
     }
 
     /**
@@ -304,7 +335,7 @@ class HalResource implements \ArrayAccess
     public function getResource(Link $link, array $variables = array())
     {
         $href = $link->getHref($variables);
-        $request = $this->getMessageFactory()->createRequest('get', $href);
+        $request = $this->getMessageFactory()->createRequest('get', $href, $this->defaultHeaders);
         $response = $this->getClient()->sendRequest($request);
 
         if (!$response instanceof ResponseInterface) {
@@ -315,7 +346,7 @@ class HalResource implements \ArrayAccess
             throw new \RuntimeException(sprintf('HttpClient does not return a status code, given: %s', $response->getStatusCode()));
         }
 
-        return EntryPoint::parse($response, $this->getClient());
+        return EntryPoint::parse($response, $this->getClient(), $this->getMessageFactory(), $this->defaultHeaders);
     }
 
     /**

@@ -54,12 +54,14 @@ class EntryPoint
      * @param ResponseInterface $response
      * @param HttpClient|null $client
      * @param MessageFactory $messageFactory
+     * @param array $defaultHeaders
      * @return HalResource
      */
     public static function parse(
         ResponseInterface $response,
         HttpClient $client = null,
-        MessageFactory $messageFactory = null
+        MessageFactory $messageFactory = null,
+        array $defaultHeaders = []
     ) {
         if ($response->hasHeader('Content-Type')
             && substr($response->getHeader('Content-Type')[0], 0, 20) !== 'application/hal+json')
@@ -75,7 +77,7 @@ class EntryPoint
 
         $client = $client ?: HttpClientDiscovery::find();
 
-        return HalResource::create($data, $client, $messageFactory);
+        return HalResource::create($data, $client, $messageFactory, $defaultHeaders);
     }
 
     /**

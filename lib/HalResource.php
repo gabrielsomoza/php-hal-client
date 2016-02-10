@@ -11,10 +11,13 @@
 
 namespace Ekino\HalClient;
 
-use Ekino\HalClient\HttpClient\HttpClientInterface;
-use Ekino\HalClient\HttpClient\HttpResponse;
+use Http\Client\HttpClient;
+use Http\Discovery\HttpClientDiscovery;
+use Http\Discovery\MessageFactoryDiscovery;
+use Http\Message\MessageFactory;
+use Psr\Http\Message\ResponseInterface;
 
-class Resource implements \ArrayAccess
+class HalResource implements \ArrayAccess
 {
     protected $properties;
 
@@ -26,20 +29,62 @@ class Resource implements \ArrayAccess
 
     protected $client;
 
+    private $messageFactory;
+
     /**
-     * @param array               $properties
-     * @param array               $links
-     * @param array               $embedded
-     * @param HttpClientInterface $client
+     * @param array $properties
+     * @param array $links
+     * @param array $embedded
+     * @param HttpClient|null $client
+     * @param MessageFactory $messageFactory
      */
-    public function __construct(HttpClientInterface $client, $properties = array(), $links = array(), $embedded = array())
-    {
-        $this->client     = $client;
+    public function __construct(
+        $properties = array(),
+        $links = array(),
+        $embedded = array(),
+        HttpClient $client = null,
+        MessageFactory $messageFactory = null
+    ) {
         $this->properties = $properties;
         $this->links      = $links;
         $this->embedded   = $embedded;
 
+        $this->client = $client;
+        $this->messageFactory = $messageFactory;
+
         $this->parseCuries();
+    }
+
+    /**
+     * withClient
+     * @param HttpClient $client
+     * @return static
+     */
+    public function withClient(HttpClient $client)
+    {
+        return new static(
+            $this->properties,
+            $this->links,
+            $this->embedded,
+            $client,
+            $this->messageFactory
+        );
+    }
+
+    /**
+     * withMessageFactory
+     * @param MessageFactory $messageFactory
+     * @return static
+     */
+    public function withMessageFactory(MessageFactory $messageFactory)
+    {
+        return new static(
+            $this->properties,
+            $this->links,
+            $this->embedded,
+            $this->client,
+            $messageFactory
+        );
     }
 
     /**
@@ -59,7 +104,7 @@ class Resource implements \ArrayAccess
     }
 
     /**
-     * Reloads the Resource by using the self reference
+     * Reloads the HalResource by using the self reference
      *
      * @throws \RuntimeException
      */
@@ -136,7 +181,7 @@ class Resource implements \ArrayAccess
     /**
      * @param $name
      *
-     * @return Resource|ResourceCollection|null
+     * @return HalResource|ResourceCollection|null
      */
     public function get($name)
     {
@@ -220,9 +265,9 @@ class Resource implements \ArrayAccess
     {
         if ( !is_object($this->embedded[$name])) {
             if (is_integer(key($this->embedded[$name])) || empty($this->embedded[$name])) {
-                $this->embedded[$name] = new ResourceCollection($this->client, $this->embedded[$name]);
+                $this->embedded[$name] = new ResourceCollection($this->embedded[$name], $this->getClient());
             } else {
-                $this->embedded[$name] = self::create($this->client, $this->embedded[$name]);
+                $this->embedded[$name] = self::create($this->embedded[$name], $this->getClient());
             }
         }
 
@@ -230,12 +275,13 @@ class Resource implements \ArrayAccess
     }
 
     /**
-     * @param HttpClientInterface $client
-     * @param array               $data
+     * @param array $data
+     * @param HttpClient $client
      *
+     * @param MessageFactory $messageFactory
      * @return Resource
      */
-    public static function create(HttpClientInterface $client, array $data)
+    public static function create(array $data, HttpClient $client = null, MessageFactory $messageFactory = null)
     {
         $links    = isset($data['_links']) ? $data['_links'] : array();
         $embedded = isset($data['_embedded']) ? $data['_embedded'] : array();
@@ -245,33 +291,31 @@ class Resource implements \ArrayAccess
             $data['_embedded']
         );
 
-        return new self($client, $data, $links, $embedded);
+        return new self($data, $links, $embedded, $client, $messageFactory);
     }
 
     /**
      * Create a resource from link href.
      *
-     * @param Link  $link
+     * @param Link $link
      * @param array $variables Required if the link is templated
-     *
-     * @return Resource
-     *
-     * @throws \RuntimeException When call with property "href" of Link is empty and sets variables
-     *                           Or response server is invalid
+     * @return HalResource
      */
     public function getResource(Link $link, array $variables = array())
     {
-        $response = $this->client->get($link->getHref($variables));
+        $href = $link->getHref($variables);
+        $request = $this->getMessageFactory()->createRequest('get', $href);
+        $response = $this->getClient()->sendRequest($request);
 
-        if (!$response instanceof HttpResponse) {
+        if (!$response instanceof ResponseInterface) {
             throw new \RuntimeException(sprintf('HttpClient does not return a valid HttpResponse object, given: %s', $response));
         }
 
-        if ($response->getStatus() !== 200) {
-            throw new \RuntimeException(sprintf('HttpClient does not return a status code, given: %s', $response->getStatus()));
+        if ($response->getStatusCode() !== 200) {
+            throw new \RuntimeException(sprintf('HttpClient does not return a status code, given: %s', $response->getStatusCode()));
         }
 
-        return EntryPoint::parse($response, $this->client);
+        return EntryPoint::parse($response, $this->getClient());
     }
 
     /**
@@ -320,5 +364,29 @@ class Resource implements \ArrayAccess
     public function offsetUnset($offset)
     {
         throw new \RuntimeException('Operation not available');
+    }
+
+    /**
+     * getClient
+     * @return HttpClient|null
+     */
+    protected function getClient()
+    {
+        if (!$this->client) {
+            $this->client = HttpClientDiscovery::find();
+        }
+        return $this->client;
+    }
+
+    /**
+     * getMessageFactory
+     * @return MessageFactory
+     */
+    protected function getMessageFactory()
+    {
+        if (!$this->messageFactory) {
+            $this->messageFactory = MessageFactoryDiscovery::find();
+        }
+        return $this->messageFactory;
     }
 }

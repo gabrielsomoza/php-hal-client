@@ -1,6 +1,7 @@
 phpunit.xml
 /nbproject/
 /coverage/
+/.puli
 /vendor/
 /docs/_build
 composer.lock

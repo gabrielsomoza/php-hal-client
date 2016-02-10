@@ -11,47 +11,59 @@
 
 namespace Ekino\HalClient;
 
-use Ekino\HalClient\HttpClient\HttpClientInterface;
-use Ekino\HalClient\HttpClient\HttpResponse;
+use Http\Client\HttpClient;
+use Http\Discovery\HttpClientDiscovery;
+use Http\Discovery\MessageFactoryDiscovery;
+use Http\Message\MessageFactory;
+use Psr\Http\Message\ResponseInterface;
 
 class EntryPoint
 {
+    /** @var string */
     protected $url;
 
+    /** @var array */
     protected $headers;
 
+    /** @var HttpClient */
     protected $client;
 
-    /**
-     * @var Resource
-     */
+    /** @var Resource */
     protected $resource;
 
     /**
-     * @param string              $url
-     * @param array               $headers
-     * @param HttpClientInterface $client
+     * @param string $url
+     * @param array $headers
+     * @param HttpClient $httpClient
+     * @param MessageFactory $messageFactory
      */
-    public function __construct($url, HttpClientInterface $client, array $headers = array())
-    {
+    public function __construct(
+        $url,
+        array $headers = array(),
+        HttpClient $httpClient = null,
+        MessageFactory $messageFactory = null
+    ) {
         $this->url     = $url;
-        $this->client  = $client;
         $this->headers = $headers;
-
+        $this->client  = $httpClient ?: HttpClientDiscovery::find();
+        $this->messageFactory = $messageFactory ?: MessageFactoryDiscovery::find();
         $this->resource = false;
     }
 
     /**
-     * @param HttpResponse        $response
-     * @param HttpClientInterface $client
-     *
-     * @return Resource
-     *
-     * @throws \RuntimeException
+     * @param ResponseInterface $response
+     * @param HttpClient|null $client
+     * @param MessageFactory $messageFactory
+     * @return HalResource
      */
-    public static function parse(HttpResponse $response, HttpClientInterface $client)
-    {
-        if (substr($response->getHeader('Content-Type'), 0, 20) !== 'application/hal+json') {
+    public static function parse(
+        ResponseInterface $response,
+        HttpClient $client = null,
+        MessageFactory $messageFactory = null
+    ) {
+        if ($response->hasHeader('Content-Type')
+            && substr($response->getHeader('Content-Type')[0], 0, 20) !== 'application/hal+json')
+        {
             throw new \RuntimeException('Invalid content type');
         }
 
@@ -61,13 +73,15 @@ class EntryPoint
             throw new \RuntimeException('Invalid JSON format');
         }
 
-        return Resource::create($client, $data);
+        $client = $client ?: HttpClientDiscovery::find();
+
+        return HalResource::create($data, $client, $messageFactory);
     }
 
     /**
      * @param string $name
      *
-     * @return Resource
+     * @return HalResource
      */
     public function get($name = null)
     {
@@ -89,6 +103,8 @@ class EntryPoint
             return;
         }
 
-        $this->resource = static::parse($this->client->get($this->url), $this->client);
+        $request = $this->messageFactory->createRequest('get', $this->url, $this->headers);
+
+        $this->resource = static::parse($this->client->sendRequest($request), $this->client, $this->messageFactory);
     }
 }

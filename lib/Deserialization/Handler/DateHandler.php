@@ -25,7 +25,6 @@ class DateHandler implements SubscribingHandlerInterface
     public static function getSubscribingMethods()
     {
         $methods = array();
-        $types = array('DateTime', 'DateInterval');
 
         foreach (array('hal') as $format) {
             $methods[] = array(

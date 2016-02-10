@@ -13,6 +13,7 @@ namespace Ekino\HalClient\Deserialization;
 
 use Ekino\HalClient\Deserialization\Handler\ArrayCollectionHandler;
 use Ekino\HalClient\Deserialization\Handler\DateHandler;
+use JMS\Serializer\Handler\HandlerRegistryInterface;
 use JMS\Serializer\Naming\CamelCaseNamingStrategy;
 use JMS\Serializer\Serializer;
 use JMS\Serializer\SerializerBuilder;
@@ -32,7 +33,7 @@ final class Builder
     {
         $serializerBuilder = SerializerBuilder::create();
         $serializerBuilder->setDeserializationVisitor('hal', new ResourceDeserializationVisitor(new CamelCaseNamingStrategy(), $autoload));
-        $serializerBuilder->configureHandlers(function($handlerRegistry) {
+        $serializerBuilder->configureHandlers(function(HandlerRegistryInterface $handlerRegistry) {
             $handlerRegistry->registerSubscribingHandler(new DateHandler());
             $handlerRegistry->registerSubscribingHandler(new ArrayCollectionHandler());
         });

@@ -11,15 +11,18 @@
 
 namespace Ekino\HalClient;
 
+use Http\Client\HttpClient;
+use Http\Message\MessageFactory\GuzzleMessageFactory;
+
 class LinkTest extends \PHPUnit_Framework_TestCase
 {
     /**
-     * @var \Ekino\HalClient\HttpClient\HttpClientInterface
+     * @var HttpClient
      */
     protected $client;
 
     /**
-     * @var \Ekino\HalClient\Resource
+     * @var \Ekino\HalClient\HalResource
      */
     protected $resource;
 
@@ -82,9 +85,11 @@ class LinkTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->client = $this->getMock('Ekino\HalClient\HttpClient\HttpClientInterface');
+        $this->client = $this->getMock(HttpClient::class);
 
-        $this->resource = new Resource($this->client, array(), array(
+        $messageFactory = new GuzzleMessageFactory();
+
+        $this->resource = (new HalResource(array(), array(
             'curies' => array(
                 array(
                     'name' => 'test',
@@ -103,6 +108,7 @@ class LinkTest extends \PHPUnit_Framework_TestCase
                 'href' => 'http://localhost/tag/{id}',
                 'templated' => false
             )
-        ));
+        )))->withClient($this->client)
+            ->withMessageFactory($messageFactory);
     }
 }

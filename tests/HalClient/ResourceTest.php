@@ -11,17 +11,21 @@
 
 namespace Exporter\Test;
 
-use Ekino\HalClient\HttpClient\HttpResponse;
-use Ekino\HalClient\Resource;
+use Ekino\HalClient\HalResource;
+use GuzzleHttp\Psr7\Response;
+use Http\Client\HttpClient;
+use Http\Message\MessageFactory;
+use Http\Message\MessageFactory\GuzzleMessageFactory;
+use PHPUnit_Framework_MockObject_MockObject as MockObject;
+use Psr\Http\Message\RequestInterface;
 
 class ResourceTest extends \PHPUnit_Framework_TestCase
 {
 
     public function testHandler()
     {
-        $client = $this->getMock('Ekino\HalClient\HttpClient\HttpClientInterface');
-
-        $resource = new Resource($client);
+        $client = $this->getMock(HttpClient::class);
+        (new HalResource())->withClient($client);
     }
 
     /**
@@ -30,15 +34,21 @@ class ResourceTest extends \PHPUnit_Framework_TestCase
      */
     public function testInvalidStatus()
     {
-        $client = $this->getMock('Ekino\HalClient\HttpClient\HttpClientInterface');
-        $client->expects($this->once())->method('get')->will($this->returnValue(new HttpResponse(500)));
+        /** @var MockObject|HttpClient $client */
+        $client = $this->getMock(HttpClient::class);
+        $client->expects($this->once())
+            ->method('sendRequest')
+            ->will($this->returnValue(new Response(500)));
 
-        $resource = new Resource($client, array(), array(
+        $messageFactory = new GuzzleMessageFactory();
+
+        $resource = (new HalResource(array(), array(
             'foo' => array(
                 'href' => 'http://fake.com/foo',
                 'title' => 'foo'
             )
-        ));
+        )))->withClient($client)
+            ->withMessageFactory($messageFactory);
 
         $resource->get('foo');
     }
@@ -52,25 +62,32 @@ class ResourceTest extends \PHPUnit_Framework_TestCase
         $client = $this->getMock('Ekino\HalClient\HttpClient\HttpClientInterface');
         $client->expects($this->never())->method('get');
 
-        $resource = new Resource($client);
+        $resource = new HalResource($client);
 
         $resource->refresh();
     }
 
     public function testRefresh()
     {
-        $client = $this->getMock('Ekino\HalClient\HttpClient\HttpClientInterface');
-        $client->expects($this->exactly(1))->method('get')->will($this->returnCallback(function($url) {
-            if ($url == 'http://propilex.herokuapp.com') {
-                return new HttpResponse(200, array(
+        /** @var MockObject|HttpClient $client */
+        $client = $this->getMock(HttpClient::class);
+        $client->expects($this->exactly(1))
+            ->method('sendRequest')
+            ->will($this->returnCallback(function (RequestInterface $url) {
+                if ($url->getUri() == 'http://propilex.herokuapp.com') {
+                    return new Response(200, array(
                         'Content-Type' => 'application/hal+json'
-                ), file_get_contents(__DIR__.'/../fixtures/entry_point.json'));
-            }
-        }));
+                    ), file_get_contents(__DIR__ . '/../fixtures/entry_point.json'));
+                }
+                return null;
+            }));
 
-        $resource = new Resource($client, array(), array(
-            'self' => array('href'=>'http://propilex.herokuapp.com')
-        ));
+        $messageFactory = new GuzzleMessageFactory();
+
+        $resource = (new HalResource(array(), array(
+            'self' => array('href' => 'http://propilex.herokuapp.com')
+        )))->withClient($client)
+            ->withMessageFactory($messageFactory);
 
         $this->assertNull($resource->get('field'));
         $resource->refresh();

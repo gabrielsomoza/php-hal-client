@@ -11,8 +11,11 @@
 
 namespace Ekino\HalClient;
 
-use Ekino\HalClient\EntryPoint;
-use Ekino\HalClient\HttpClient\HttpResponse;
+use GuzzleHttp\Psr7\Response;
+use Http\Client\HttpClient;
+use Http\Message\MessageFactory\GuzzleMessageFactory;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
 
 class EntryPointTest extends \PHPUnit_Framework_TestCase
 {
@@ -22,57 +25,63 @@ class EntryPointTest extends \PHPUnit_Framework_TestCase
      */
     public function testInvalidContentType()
     {
-        $client = $this->getMock('Ekino\HalClient\HttpClient\HttpClientInterface');
-        $client->expects($this->once())->method('get')->will($this->returnValue(new HttpResponse(200, array(
+        $client = $this->getMock(HttpClient::class);
+        $client->expects($this->once())->method('sendRequest')->will($this->returnValue(new Response(200, array(
             'Content-Type' => 'application/json'
         )), '{}'));
 
-        $entryPoint = new EntryPoint('/', $client);
+        $messageFactory = new GuzzleMessageFactory();
+
+        $entryPoint = new EntryPoint('/', [], $client, $messageFactory);
 
         $entryPoint->get();
     }
 
     public function testVersionHeader()
     {
-        $client = $this->getMock('Ekino\HalClient\HttpClient\HttpClientInterface');
-        $client->expects($this->once())->method('get')->will($this->returnCallback(function($url) {
-            return new HttpResponse(200, array(
+        $client = $this->getMock(HttpClient::class);
+        $client->expects($this->once())->method('sendRequest')->will($this->returnCallback(function ($url) {
+            return new Response(200, array(
                 'Content-Type' => 'application/hal+json;version=42'
             ), json_encode([]));
         }));
 
-        (new EntryPoint('/', $client))->get();
+        $messageFactory = new GuzzleMessageFactory();
+
+        (new EntryPoint('/', [], $client, $messageFactory))->get();
     }
 
     public function testGetResource()
     {
-        $client = $this->getMock('Ekino\HalClient\HttpClient\HttpClientInterface');
-        $client->expects($this->any())->method('get')->will($this->returnCallback(function($url) {
-
-            if ($url === '/') {
-                return new HttpResponse(200, array(
+        $client = $this->getMock(HttpClient::class);
+        $client->expects($this->any())->method('sendRequest')
+            ->will($this->returnCallback(function (RequestInterface $url) {
+                if ($url->getUri() == '/') {
+                    return new Response(200, array(
                         'Content-Type' => 'application/hal+json'
-                ), file_get_contents(__DIR__.'/../fixtures/entry_point.json'));
-            }
+                    ), file_get_contents(__DIR__ . '/../fixtures/entry_point.json'));
+                }
 
-            if ($url === 'http://propilex.herokuapp.com/documents') {
-                return new HttpResponse(200, array(
+                if ($url->getUri() == 'http://propilex.herokuapp.com/documents') {
+                    return new Response(200, array(
                         'Content-Type' => 'application/hal+json'
-                ), file_get_contents(__DIR__.'/../fixtures/documents.json'));
-            }
-        }));
+                    ), file_get_contents(__DIR__ . '/../fixtures/documents.json'));
+                }
+            }));
 
-        $entryPoint = new EntryPoint('/', $client);
+        $messageFactory = new GuzzleMessageFactory();
+
+        $entryPoint = new EntryPoint('/', [], $client, $messageFactory);
 
         $resource = $entryPoint->get();
 
-        $this->assertInstanceOf('Ekino\HalClient\Resource', $resource);
+        $this->assertInstanceOf(HalResource::class, $resource);
         $this->assertCount(1, $resource->getProperties());
         $this->assertEmpty($resource->getEmbedded());
 
         $link = $resource->getLink('p:documents');
 
-        $this->assertInstanceOf('Ekino\HalClient\Link', $link);
+        $this->assertInstanceOf(Link::class, $link);
 
         $this->assertEquals($link->getHref(), 'http://propilex.herokuapp.com/documents');
 
@@ -80,7 +89,7 @@ class EntryPointTest extends \PHPUnit_Framework_TestCase
 
         $resource = $resource->get('p:documents');
 
-        $this->assertInstanceOf('Ekino\HalClient\Resource', $resource);
+        $this->assertInstanceOf(HalResource::class, $resource);
 
         $expected = array(
             "page" => 1,
@@ -95,12 +104,12 @@ class EntryPointTest extends \PHPUnit_Framework_TestCase
 
         $collection = $resource->get('documents');
 
-        $this->assertInstanceOf('Ekino\HalClient\ResourceCollection', $collection);
+        $this->assertInstanceOf(ResourceCollection::class, $collection);
 
         $this->assertEquals(4, $collection->count());
 
         foreach ($collection as $child) {
-            $this->assertInstanceOf('Ekino\HalClient\Resource', $child);
+            $this->assertInstanceOf(HalResource::class, $child);
             $this->assertNotNull($child->get('title'));
             $this->assertNotNull($child->get('body'));
             $this->assertNotNull($child->get('id'));

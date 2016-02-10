@@ -11,7 +11,7 @@
 
 namespace Ekino\HalClient\Proxy;
 
-use Ekino\HalClient\Resource;
+use Ekino\HalClient\HalResource;
 use JMS\Serializer\Serializer;
 
 trait HalResourceEntity
@@ -64,15 +64,15 @@ trait HalResourceEntity
     }
 
     /**
-     * @param Resource $halResource
+     * @param HalResource $halResource
      */
-    public function setHalResource(Resource $halResource)
+    public function setHalResource(HalResource $halResource)
     {
         $this->__halResource = $halResource;
     }
 
     /**
-     * @return Resource
+     * @return HalResource
      */
     public function getHalResource()
     {

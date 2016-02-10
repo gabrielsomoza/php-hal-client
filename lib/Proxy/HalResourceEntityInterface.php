@@ -11,15 +11,15 @@
 
 namespace Ekino\HalClient\Proxy;
 
-use Ekino\HalClient\Resource;
+use Ekino\HalClient\HalResource;
 use JMS\Serializer\Serializer;
 
 interface HalResourceEntityInterface
 {
     /**
-     * @param Resource $resource
+     * @param HalResource $resource
      */
-    public function setHalResource(Resource $resource);
+    public function setHalResource(HalResource $resource);
 
     /**
      * @return Resource

@@ -11,7 +11,7 @@
 
 namespace Ekino\HalClient\Deserialization;
 
-use Ekino\HalClient\Resource;
+use Ekino\HalClient\HalResource;
 use Ekino\HalClient\ResourceCollection;
 use JMS\Serializer\AbstractVisitor;
 use JMS\Serializer\Context;
@@ -23,12 +23,12 @@ use JMS\Serializer\Naming\PropertyNamingStrategyInterface;
 
 class ResourceDeserializationVisitor extends AbstractVisitor
 {
+    /** @var GraphNavigator */
     private $navigator;
     private $result;
+    /** @var \SplStack */
     private $objectStack;
     private $currentObject;
-
-    protected $namingStrategy;
 
     protected $autoload;
 
@@ -38,8 +38,8 @@ class ResourceDeserializationVisitor extends AbstractVisitor
      */
     public function __construct(PropertyNamingStrategyInterface $namingStrategy, $autoload = true)
     {
-        $this->namingStrategy = $namingStrategy;
         $this->autoload       = $autoload;
+        parent::__construct($namingStrategy);
     }
 
     /**
@@ -47,7 +47,7 @@ class ResourceDeserializationVisitor extends AbstractVisitor
      */
     protected function decode($str)
     {
-        if (!$str instanceof Resource) {
+        if (!$str instanceof HalResource) {
             throw new \RuntimeException('Invalid argument, Ekino\HalClient\Resource required');
         }
 
@@ -61,7 +61,7 @@ class ResourceDeserializationVisitor extends AbstractVisitor
     {
         $name = $this->namingStrategy->translateName($metadata);
 
-        if ($data instanceof Resource && !$data->hasEmbedded($name) && $data->hasLink($name) && !$data->hasProperty($name) && !$this->autoload) {
+        if ($data instanceof HalResource && !$data->hasEmbedded($name) && $data->hasLink($name) && !$data->hasProperty($name) && !$this->autoload) {
             return;
         }
 

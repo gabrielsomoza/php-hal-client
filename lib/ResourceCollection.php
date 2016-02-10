@@ -11,7 +11,8 @@
 
 namespace Ekino\HalClient;
 
-use Ekino\HalClient\HttpClient\HttpClientInterface;
+use Http\Client\HttpClient;
+use Http\Discovery\HttpClientDiscovery;
 
 class ResourceCollection implements \Iterator, \Countable, \ArrayAccess
 {
@@ -22,25 +23,25 @@ class ResourceCollection implements \Iterator, \Countable, \ArrayAccess
     protected $updateIterator = true;
 
     /**
-     * @param HttpClientInterface $client
+     * @param HttpClient $client
      * @param array               $collection
      */
-    public function __construct(HttpClientInterface $client, array $collection = array())
+    public function __construct(array $collection = array(), HttpClient $client = null)
     {
-        $this->client     = $client;
-        $this->iterator   = new \ArrayIterator($collection);
+        $this->client = $client ?: HttpClientDiscovery::find();
+        $this->iterator = new \ArrayIterator($collection);
     }
 
     /**
-     * @param HttpClientInterface $client
      * @param \Iterator $collection
-     * @param bool $updateIterator if the Iterator should be updated to wrap the data inside Resource instances
+     * @param HttpClient $client
+     * @param bool $updateIterator if the Iterator should be updated to wrap the data inside HalResource instances
      *
      * @return ResourceCollection
      */
-    public static function createFromIterator(HttpClientInterface $client, \Iterator $collection, $updateIterator = false)
+    public static function createFromIterator(\Iterator $collection, $updateIterator = false, HttpClient $client = null)
     {
-        $col = new self($client);
+        $col = new self([], $client);
         $col->iterator = $collection;
         $col->updateIterator = $updateIterator;
 
@@ -58,7 +59,7 @@ class ResourceCollection implements \Iterator, \Countable, \ArrayAccess
             return null;
         }
 
-        return Resource::create($this->client, $data);
+        return HalResource::create($data, $this->client);
     }
 
     /**
@@ -71,7 +72,7 @@ class ResourceCollection implements \Iterator, \Countable, \ArrayAccess
             return null;
         }
 
-        if ($this->updateIterator && !$resource instanceof Resource) {
+        if ($this->updateIterator && !$resource instanceof HalResource) {
             $resource = $this->createResource($resource);
             $this->iterator->offsetSet($this->iterator->key(), $resource);
         }
@@ -149,7 +150,7 @@ class ResourceCollection implements \Iterator, \Countable, \ArrayAccess
             return null;
         }
 
-        if ($this->updateIterator && !$resource instanceof Resource) {
+        if ($this->updateIterator && !$resource instanceof HalResource) {
             $resource = $this->createResource($resource);
             $this->iterator->offsetSet($offset, $resource);
         }

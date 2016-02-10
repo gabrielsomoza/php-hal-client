@@ -12,7 +12,7 @@
 namespace Ekino\HalClient\Deserialization\Construction;
 
 use Ekino\HalClient\Proxy\HalResourceEntityInterface;
-use Ekino\HalClient\Resource;
+use Ekino\HalClient\HalResource;
 use JMS\Serializer\Construction\ObjectConstructorInterface;
 use JMS\Serializer\DeserializationContext;
 use JMS\Serializer\Metadata\ClassMetadata;
@@ -23,7 +23,7 @@ class ProxyObjectConstruction implements ObjectConstructorInterface
 {
     protected $serializer;
 
-    protected $pattern;
+    protected $patterns;
 
     /**
      * http://en.wikipedia.org/wiki/Namespace
@@ -67,7 +67,7 @@ class ProxyObjectConstruction implements ObjectConstructorInterface
             $instance = unserialize(sprintf('O:%d:"%s":0:{}', strlen($metadata->name), $metadata->name));
         }
 
-        if ($instance instanceof HalResourceEntityInterface && $data instanceof Resource) {
+        if ($instance instanceof HalResourceEntityInterface && $data instanceof HalResource) {
             $instance->setHalResource($data);
             if ($this->serializer) {
                 $instance->setHalSerializer($this->serializer);

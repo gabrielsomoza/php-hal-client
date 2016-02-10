@@ -11,14 +11,20 @@
             "email": "thomas.rabaix@gmail.com"
         }
     ],
+    "minimum-stability": "beta",
     "require": {
         "php": ">=5.4.0",
         "doctrine/collections": "~1.2",
-        "guzzlehttp/guzzle": "^6.1"
+        "php-http/client-implementation": "^1.0",
+        "php-http/discovery": "^0.7.0",
+        "php-http/message": "^1.0",
+        "ql/uri-template": "1.1.0"
     },
     "require-dev": {
         "jms/serializer": "~0.16",
-        "doctrine/collections": "~1.2"
+        "doctrine/collections": "~1.2",
+        "php-http/guzzle6-adapter": "^1.0",
+        "phpunit/phpunit": "*"
     },
     "suggest": {
         "jms/serializer": "Enable support of Resource Deserialization"

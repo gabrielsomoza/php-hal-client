@@ -1,5 +1,4 @@
 <?php
-
 /*
 * This file is part of the Ekino HalClient package.
 *
@@ -11,7 +10,8 @@
 
 namespace Ekino\HalClient;
 
-use GuzzleHttp\UriTemplate;
+use Http\Message\UriFactory;
+use QL\UriTemplate\UriTemplate;
 
 abstract class AbstractLink
 {
@@ -97,8 +97,8 @@ abstract class AbstractLink
             return $this->href;
         }
 
-        $template = new UriTemplate();
+        $template = new UriTemplate($this->href);
 
-        return $template->expand($this->href, $variables);
+        return $template->expand($variables);
     }
 }

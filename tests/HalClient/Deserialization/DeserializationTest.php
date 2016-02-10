@@ -12,14 +12,11 @@
 namespace Ekino\HalClient\Deserialization {
 
     use Ekino\HalClient\Deserialization\Construction\ProxyObjectConstruction;
-    use Ekino\HalClient\Deserialization\Handler\ArrayCollectionHandler;
-    use Ekino\HalClient\Deserialization\Handler\DateHandler;
-    use Ekino\HalClient\Deserialization\ResourceDeserializationVisitor;
-    use Ekino\HalClient\HttpClient\HttpResponse;
-    use Ekino\HalClient\Resource;
-    use JMS\Serializer\Naming\CamelCaseNamingStrategy;
-    use JMS\Serializer\SerializerBuilder;
-    use Doctrine\Common\Collections\ArrayCollection;
+    use Ekino\HalClient\HalResource;
+    use GuzzleHttp\Psr7\Response;
+    use Http\Client\HttpClient;
+    use Http\Message\MessageFactory\GuzzleMessageFactory;
+    use Psr\Http\Message\RequestInterface;
 
     class DeserializationTest extends \PHPUnit_Framework_TestCase
     {
@@ -28,48 +25,52 @@ namespace Ekino\HalClient\Deserialization {
          */
         public function getResource()
         {
-             $client = $this->getMock('Ekino\HalClient\HttpClient\HttpClientInterface');
-             $client->expects($this->exactly(1))->method('get')->will($this->returnCallback(function($url) {
-                 if ($url == '/users/1') {
-                     return new HttpResponse(200, array(
-                         'Content-Type' => 'application/hal+json'
-                     ), json_encode(array(
-                         'name' => 'Thomas Rabaix',
-                         'email' => 'thomas.rabaix@ekino.com'
-                     )));
-                 }
-             }));
+            /** @var HttpClient|\PHPUnit_Framework_MockObject_MockObject $client */
+            $client = $this->getMock(HttpClient::class);
+            $client->expects($this->exactly(1))->method('sendRequest')->will($this->returnCallback(function (RequestInterface $url) {
+                if ($url->getUri() == '/users/1') {
+                    return new Response(200, array(
+                        'Content-Type' => 'application/hal+json'
+                    ), json_encode(array(
+                        'name' => 'Thomas Rabaix',
+                        'email' => 'thomas.rabaix@ekino.com'
+                    )));
+                }
+            }));
 
-             $resource = new Resource($client, array(
-                 'name' => 'Salut',
-             ), array(
-                 'fragments' => array('href' => '/document/1/fragments'),
-                 'author' => array('href' => '/users/1')
-             ), array(
-                 'fragments' => array(
-                     array(
-                         'type' => 'test',
-                         'settings' => array(
-                             'color' => 'red'
-                         )
-                     ),
-                     array(
-                         'type' => 'image',
-                         'settings' => array(
-                             'url' => 'http://dummyimage.com/600x400/000/fff'
-                         )
-                     )
-                 )
-             ));
+            $messageFactory = new GuzzleMessageFactory();
 
-            return $resource;
+            $resource = new HalResource(array(
+                'name' => 'Salut',
+            ), array(
+                'fragments' => array('href' => '/document/1/fragments'),
+                'author' => array('href' => '/users/1')
+            ), array(
+                'fragments' => array(
+                    array(
+                        'type' => 'test',
+                        'settings' => array(
+                            'color' => 'red'
+                        )
+                    ),
+                    array(
+                        'type' => 'image',
+                        'settings' => array(
+                            'url' => 'http://dummyimage.com/600x400/000/fff'
+                        )
+                    )
+                )
+            ));
+
+            return $resource->withClient($client)->withMessageFactory($messageFactory);
         }
 
         public function testMapping()
         {
             $resource = $this->getResource();
 
-            $object = Builder::build()->deserialize($resource, 'Ekino\HalClient\Deserialization\Article', 'hal');
+            /** @var Article $object */
+            $object = Builder::build()->deserialize($resource, Article::class, 'hal');
 
             $this->assertEquals('Salut', $object->getName());
 
@@ -94,7 +95,8 @@ namespace Ekino\HalClient\Deserialization {
 
             $constructor->setSerializer($serializer);
 
-            $object = $serializer->deserialize($resource, 'Ekino\HalClient\Deserialization\Article', 'hal');
+            /** @var Article $object */
+            $object = $serializer->deserialize($resource, Article::class, 'hal');
 
             $this->assertInstanceOf('Proxy\Ekino\HalClient\Deserialization\Article', $object);
             $this->assertInstanceOf('Ekino\HalClient\Deserialization\Article', $object);
@@ -118,7 +120,7 @@ namespace Proxy\Ekino\HalClient\Deserialization {
 
     use Ekino\HalClient\Proxy\HalResourceEntity;
     use Ekino\HalClient\Proxy\HalResourceEntityInterface;
-    use Ekino\HalClient\Resource;
+    use Ekino\HalClient\HalResource;
 
     class Article extends \Ekino\HalClient\Deserialization\Article implements HalResourceEntityInterface
     {
@@ -134,7 +136,7 @@ namespace Proxy\Ekino\HalClient\Deserialization {
 
                 $resource = $this->getHalResource()->get('author');
 
-                if ($resource instanceof Resource) {
+                if ($resource instanceof HalResource) {
                     $this->author = $this->getHalSerializer()->deserialize($resource, 'Ekino\HalClient\Deserialization\Author', 'hal');
                 }
             }
@@ -150,6 +152,7 @@ namespace Proxy\Ekino\HalClient\Deserialization {
 }
 
 namespace Ekino\HalClient\Deserialization {
+
     use JMS\Serializer\Annotation as Serializer;
 
     class Article
@@ -177,7 +180,7 @@ namespace Ekino\HalClient\Deserialization {
         }
 
         /**
-         * @return array
+         * @return Author
          */
         public function getAuthor()
         {
@@ -200,7 +203,7 @@ namespace Ekino\HalClient\Deserialization {
         }
 
         /**
-         * @return array
+         * @return Fragment[]
          */
         public function getFragments()
         {

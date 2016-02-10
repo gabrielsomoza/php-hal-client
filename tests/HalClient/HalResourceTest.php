@@ -11,6 +11,7 @@
 
 namespace Exporter\Test;
 
+use Ekino\HalClient\Curie;
 use Ekino\HalClient\HalResource;
 use GuzzleHttp\Psr7\Response;
 use Http\Client\HttpClient;
@@ -19,11 +20,12 @@ use Http\Message\MessageFactory\GuzzleMessageFactory;
 use PHPUnit_Framework_MockObject_MockObject as MockObject;
 use Psr\Http\Message\RequestInterface;
 
-class ResourceTest extends \PHPUnit_Framework_TestCase
+class HalResourceTest extends \PHPUnit_Framework_TestCase
 {
 
     public function testHandler()
     {
+        /** @var HttpClient $client */
         $client = $this->getMock(HttpClient::class);
         (new HalResource())->withClient($client);
     }
@@ -93,5 +95,52 @@ class ResourceTest extends \PHPUnit_Framework_TestCase
         $resource->refresh();
 
         $this->assertEquals($resource->get('field'), 'value');
+    }
+
+    /**
+     * testParseCuries
+     * @param $curies
+     * @return void
+     * @dataProvider parseCuriesProvider
+     */
+    public function testParseCuries($curies)
+    {
+        $resource = (new HalResource([], [
+            'curies' => $curies
+        ]));
+
+        $klass = new \ReflectionClass($resource);
+
+        $method = $klass->getMethod('parseCuries');
+        $method->setAccessible(true);
+        $prop = $klass->getProperty('curies');
+        $prop->setAccessible(true);
+
+        $method->invoke($resource);
+
+        $curies = $prop->getValue($resource);
+        foreach ($curies as $curie) {
+            $this->assertInstanceOf(Curie::class, $curie);
+        }
+    }
+
+    public function parseCuriesProvider()
+    {
+        return [
+            [
+                ['name' => 'test1', 'href' => 'http://foo.bar'],
+            ],
+            [
+                [
+                    ['name' => 'test1', 'href' => 'http://foo.bar'],
+                ]
+            ],
+            [
+                [
+                    ['name' => 'test1', 'href' => 'http://foo.bar'],
+                    ['name' => 'baz-test', 'href' => 'http://foo.bar.baz'],
+                ]
+            ],
+        ];
     }
 }

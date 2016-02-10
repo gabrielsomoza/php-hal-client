@@ -191,15 +191,26 @@ class HalResource implements \ArrayAccess
         return $this->properties;
     }
 
+    /**
+     * parseCuries
+     * @return void
+     */
     protected function parseCuries()
     {
         $this->curies = array();
 
-        if (!array_key_exists('curies', $this->links)) {
+        if (!array_key_exists('curies', $this->links) || empty($this->links['curies'])) {
             return;
         }
 
-        foreach ($this->links['curies'] as $curie) {
+        $curies = $this->links['curies'];
+        $firstItem = current($this->links['curies']);
+        if (!is_array($firstItem)) {
+            // this is a single curie and is therefore not in an array (e.g. Apigility / ZF-Hal)
+            $curies = [$curies];
+        }
+
+        foreach ($curies as $curie) {
             $this->curies[$curie['name']] = new Curie($curie);
         }
     }

@@ -106,7 +106,13 @@ class EntryPoint
         }
 
         $request = $this->messageFactory->createRequest('get', $this->url, $this->headers);
+        $response = $this->client->sendRequest($request);
 
-        $this->resource = static::parse($this->client->sendRequest($request), $this->client, $this->messageFactory);
+        $this->resource = static::parse(
+            $response,
+            $this->client,
+            $this->messageFactory,
+            $this->headers
+        );
     }
 }

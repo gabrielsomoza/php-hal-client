@@ -19,6 +19,15 @@ use Psr\Http\Message\ResponseInterface;
 
 class EntryPoint
 {
+    /**
+     * Some example matches:
+     *      - application/json
+     *      - application/anything+json
+     *      - application/foobar+json;version=42
+     *      - application/baz+json;basically!anything#can_go here
+     */
+    const REGEX_APPLICATION_JSON = '{^application/(\w+?\+)?json(;.*)*?$}';
+
     /** @var string */
     protected $url;
 
@@ -64,8 +73,8 @@ class EntryPoint
         array $defaultHeaders = []
     ) {
         if ($response->hasHeader('Content-Type')
-            && substr($response->getHeader('Content-Type')[0], 0, 20) !== 'application/hal+json')
-        {
+            && !preg_match(self::REGEX_APPLICATION_JSON, $response->getHeader('Content-Type')[0])
+        ) {
             throw new \RuntimeException('Invalid content type');
         }
 
